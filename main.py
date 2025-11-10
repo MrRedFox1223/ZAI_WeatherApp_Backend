@@ -6,6 +6,7 @@ from typing import List
 from database import engine, get_db, Base
 from models import WeatherRecord, User
 from schemas import WeatherRecordResponse, WeatherRecordUpdate, WeatherRecordBase, LoginRequest, LoginResponse
+from auth import create_access_token, get_current_user, verify_password
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -43,22 +44,25 @@ async def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     - **username**: Username for login
     - **password**: Password for login
     
-    Returns user data with id, username, role, and token (currently empty).
+    Returns user data with id, username, role, and JWT token.
     """
     user = db.query(User).filter(User.username == login_data.username).first()
     
     if not user:
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
-    # Simple password check (in production, use hashed passwords)
-    if user.password != login_data.password:
+    # Verify password hash
+    if not verify_password(login_data.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
+    
+    # Create access token
+    access_token = create_access_token(data={"sub": user.username})
     
     return LoginResponse(
         id=user.id,
         username=user.username,
         role=user.role,
-        token=""  # Token is empty for now
+        token=access_token
     )
 
 
@@ -76,10 +80,13 @@ async def get_all_weather_records(db: Session = Depends(get_db)):
 @app.post("/weather", response_model=WeatherRecordResponse)
 async def create_weather_record(
     record: WeatherRecordBase,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create a new weather record.
+    
+    Requires authentication (Bearer token).
     
     - **city_name**: Name of the city
     - **date**: Date of the measurement
@@ -103,10 +110,13 @@ async def create_weather_record(
 @app.put("/weather", response_model=WeatherRecordResponse)
 async def update_weather_record(
     record_update: WeatherRecordUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Update a weather record using the ID from the request body.
+    
+    Requires authentication (Bearer token).
     
     - **record_update**: The updated record data (id, city_name, date, temperature)
     
@@ -132,10 +142,13 @@ async def update_weather_record(
 @app.delete("/weather/{record_id}")
 async def delete_weather_record(
     record_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Delete a weather record by ID.
+    
+    Requires authentication (Bearer token).
     
     - **record_id**: The ID of the record to delete
     

@@ -5,6 +5,7 @@ Run this script once to populate the database with initial weather records.
 from database import SessionLocal, engine
 from models import Base, WeatherRecord, User
 from datetime import date
+from auth import get_password_hash
 
 # Create all tables
 Base.metadata.create_all(bind=engine)
@@ -45,13 +46,14 @@ def init_db():
         
         # Add admin user
         if existing_users == 0:
+            hashed_password = get_password_hash("admin")
             admin_user = User(
                 username="admin",
-                password="admin",
+                password=hashed_password,
                 role="admin"
             )
             db.add(admin_user)
-            print("Successfully added admin user (username: admin, password: admin).")
+            print("Successfully added admin user (username: admin, password: admin - hashed).")
         
         db.commit()
     except Exception as e:
