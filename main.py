@@ -5,8 +5,8 @@ from typing import List
 
 from database import engine, get_db, Base
 from models import WeatherRecord, User
-from schemas import WeatherRecordResponse, WeatherRecordUpdate, WeatherRecordBase, LoginRequest, LoginResponse
-from auth import create_access_token, get_current_user, verify_password
+from schemas import WeatherRecordResponse, WeatherRecordUpdate, WeatherRecordBase, LoginRequest, LoginResponse, ChangePasswordRequest, ChangePasswordResponse
+from auth import create_access_token, get_current_user, verify_password, get_password_hash
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -64,6 +64,40 @@ async def login(login_data: LoginRequest, db: Session = Depends(get_db)):
         role=user.role,
         token=access_token
     )
+
+
+@app.post("/change_password", response_model=ChangePasswordResponse)
+async def change_password(
+    password_data: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Change user password.
+    
+    Requires authentication (Bearer token).
+    
+    - **old_password**: Current password
+    - **new_password**: New password to set
+    
+    Returns success message.
+    """
+    # Verify old password
+    if not verify_password(password_data.old_password, current_user.password):
+        raise HTTPException(status_code=401, detail="Invalid old password")
+    
+    # Check if new password is the same as old password
+    if password_data.old_password == password_data.new_password:
+        raise HTTPException(status_code=400, detail="New password must be different from old password")
+    
+    # Hash new password
+    hashed_new_password = get_password_hash(password_data.new_password)
+    
+    # Update password
+    current_user.password = hashed_new_password
+    db.commit()
+    
+    return ChangePasswordResponse(message="Password changed successfully")
 
 
 @app.get("/weather", response_model=List[WeatherRecordResponse])
