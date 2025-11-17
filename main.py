@@ -256,3 +256,74 @@ async def delete_weather_record(
     
     return {"message": "Weather record deleted successfully", "id": record_id}
 
+
+@app.post("/init-db")
+async def initialize_database(current_user: User = Depends(get_current_user)):
+    """
+    Initialize database with sample data.
+    
+    Requires authentication (Bearer token).
+    Only initializes if database is empty.
+    
+    Returns success message with number of records created.
+    """
+    db = SessionLocal()
+    try:
+        existing_records = db.query(WeatherRecord).count()
+        existing_users = db.query(User).count()
+        
+        records_created = 0
+        users_created = 0
+        
+        if existing_records == 0:
+            sample_data = [
+                {"id": 1, "city_name": "New York", "date": date(2025, 1, 14), "temperature": 5.0},
+                {"id": 2, "city_name": "London", "date": date(2025, 1, 14), "temperature": 8.0},
+                {"id": 3, "city_name": "Tokyo", "date": date(2025, 1, 14), "temperature": 12.0},
+                {"id": 4, "city_name": "Paris", "date": date(2025, 1, 14), "temperature": 6.0},
+                {"id": 5, "city_name": "New York", "date": date(2025, 1, 15), "temperature": 7.0},
+                {"id": 6, "city_name": "London", "date": date(2025, 1, 15), "temperature": 9.0},
+                {"id": 7, "city_name": "Tokyo", "date": date(2025, 1, 15), "temperature": 13.0},
+                {"id": 8, "city_name": "Paris", "date": date(2025, 1, 15), "temperature": 7.0},
+                {"id": 9, "city_name": "New York", "date": date(2025, 1, 16), "temperature": 6.0},
+                {"id": 10, "city_name": "London", "date": date(2025, 1, 16), "temperature": 10.0},
+                {"id": 11, "city_name": "Tokyo", "date": date(2025, 1, 16), "temperature": 14.0},
+                {"id": 12, "city_name": "Paris", "date": date(2025, 1, 16), "temperature": 8.0},
+            ]
+            
+            for data in sample_data:
+                record = WeatherRecord(**data)
+                db.add(record)
+            records_created = len(sample_data)
+        
+        if existing_users == 0:
+            hashed_password = get_password_hash("admin")
+            admin_user = User(
+                username="admin",
+                password=hashed_password,
+                role="admin"
+            )
+            db.add(admin_user)
+            users_created = 1
+        
+        db.commit()
+        
+        if records_created > 0 or users_created > 0:
+            return {
+                "message": "Database initialized successfully",
+                "weather_records_created": records_created,
+                "users_created": users_created
+            }
+        else:
+            return {
+                "message": "Database already contains data",
+                "existing_records": existing_records,
+                "existing_users": existing_users
+            }
+            
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error initializing database: {str(e)}")
+    finally:
+        db.close()
+
