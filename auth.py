@@ -115,7 +115,6 @@ def get_password_hash(password: str) -> str:
         error_msg = str(e).lower()
         # If error is about password length, try direct bcrypt as fallback
         if "72 bytes" in error_msg or "too long" in error_msg or "truncate" in error_msg:
-            print(f"WARNING: passlib failed with error: {error_msg}. Trying direct bcrypt...")
             # Use bcrypt directly as fallback
             try:
                 # Generate salt and hash using bcrypt directly

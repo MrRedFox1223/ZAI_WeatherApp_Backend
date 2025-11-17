@@ -46,13 +46,9 @@ def init_database():
                 record = WeatherRecord(**data)
                 db.add(record)
         
-        # Add admin user - always ensure admin exists with valid password
+        # Add admin user if it doesn't exist
         existing_admin = db.query(User).filter(User.username == "admin").first()
-        if existing_admin:
-            # Delete existing admin to recreate with fresh password (avoid password issues)
-            db.delete(existing_admin)
-        # Create new admin user
-        try:
+        if not existing_admin:
             hashed_password = get_password_hash("admin")
             admin_user = User(
                 username="admin",
@@ -60,14 +56,11 @@ def init_database():
                 role="admin"
             )
             db.add(admin_user)
-        except Exception as e:
-            print(f"Error creating admin user in init_database: {e}")
-            raise
         
         db.commit()
     except Exception as e:
         db.rollback()
-        print(f"Error initializing database: {e}")
+        raise
     finally:
         db.close()
 
@@ -263,172 +256,3 @@ async def delete_weather_record(
     db.commit()
     
     return {"message": "Weather record deleted successfully", "id": record_id}
-
-
-def _initialize_database():
-    """Internal function to initialize database"""
-    db = SessionLocal()
-    try:
-        existing_records = db.query(WeatherRecord).count()
-        existing_users = db.query(User).count()
-        
-        records_created = 0
-        users_created = 0
-        
-        if existing_records == 0:
-            sample_data = [
-                {"id": 1, "city_name": "New York", "date": date(2025, 1, 14), "temperature": 5.0},
-                {"id": 2, "city_name": "London", "date": date(2025, 1, 14), "temperature": 8.0},
-                {"id": 3, "city_name": "Tokyo", "date": date(2025, 1, 14), "temperature": 12.0},
-                {"id": 4, "city_name": "Paris", "date": date(2025, 1, 14), "temperature": 6.0},
-                {"id": 5, "city_name": "New York", "date": date(2025, 1, 15), "temperature": 7.0},
-                {"id": 6, "city_name": "London", "date": date(2025, 1, 15), "temperature": 9.0},
-                {"id": 7, "city_name": "Tokyo", "date": date(2025, 1, 15), "temperature": 13.0},
-                {"id": 8, "city_name": "Paris", "date": date(2025, 1, 15), "temperature": 7.0},
-                {"id": 9, "city_name": "New York", "date": date(2025, 1, 16), "temperature": 6.0},
-                {"id": 10, "city_name": "London", "date": date(2025, 1, 16), "temperature": 10.0},
-                {"id": 11, "city_name": "Tokyo", "date": date(2025, 1, 16), "temperature": 14.0},
-                {"id": 12, "city_name": "Paris", "date": date(2025, 1, 16), "temperature": 8.0},
-            ]
-            
-            for data in sample_data:
-                record = WeatherRecord(**data)
-                db.add(record)
-            records_created = len(sample_data)
-        
-        # Always ensure admin user exists with valid password
-        # Delete existing admin user if it exists to avoid any password issues
-        existing_admin = db.query(User).filter(User.username == "admin").first()
-        if existing_admin:
-            # Delete existing admin to recreate with fresh password
-            db.delete(existing_admin)
-            db.commit()
-        
-        # Check if admin user doesn't exist, create it
-        existing_admin_check = db.query(User).filter(User.username == "admin").first()
-        if not existing_admin_check:
-            # Create new admin user with hashed password
-            # Use a simple, short password "admin" which is definitely < 72 bytes
-            password_plain = "admin"
-            
-            # Debug: verify password length
-            password_bytes = password_plain.encode('utf-8')
-            print(f"DEBUG: Creating admin user with password length: {len(password_bytes)} bytes")
-            print(f"DEBUG: Password: '{password_plain}'")
-            
-            try:
-                hashed_password = get_password_hash(password_plain)
-                
-                # Debug: verify hash length
-                print(f"DEBUG: Hash length: {len(hashed_password)} characters")
-                print(f"DEBUG: Hash starts with: {hashed_password[:20]}...")
-                
-                admin_user = User(
-                    username="admin",
-                    password=hashed_password,
-                    role="admin"
-                )
-                db.add(admin_user)
-                users_created = 1
-            except Exception as hash_error:
-                # Log detailed error information
-                error_type = type(hash_error).__name__
-                error_msg = str(hash_error) if str(hash_error) else repr(hash_error)
-                error_detail = f"{error_type}: {error_msg}"
-                print(f"ERROR creating admin user: {error_detail}")
-                print(f"ERROR password_plain type: {type(password_plain)}, value: '{password_plain}', bytes: {len(password_plain.encode('utf-8'))}")
-                raise Exception(f"Failed to create admin user - {error_detail}")
-        
-        db.commit()
-        
-        return {
-            "success": records_created > 0 or users_created > 0,
-            "weather_records_created": records_created,
-            "users_created": users_created,
-            "existing_records": existing_records,
-            "existing_users": existing_users
-        }
-            
-    except HTTPException:
-        # Re-raise HTTPException as-is
-        db.rollback()
-        raise
-    except Exception as e:
-        db.rollback()
-        # Create detailed error message
-        error_type = type(e).__name__
-        error_msg = str(e) if str(e) else repr(e)
-        error_detail = f"{error_type}: {error_msg}" if error_msg else f"{error_type} (no message)"
-        print(f"Error in _initialize_database: {error_detail}")
-        raise Exception(f"Error initializing database - {error_detail}")
-    finally:
-        db.close()
-
-
-@app.get("/init-db")
-async def initialize_database_get():
-    """
-    Initialize database with sample data (GET endpoint).
-    
-    Only initializes if database is empty. Works without authentication for convenience.
-    In production, consider using POST /init-db with authentication.
-    
-    Returns success message with number of records created.
-    """
-    try:
-        result = _initialize_database()
-        
-        if result["success"]:
-            return {
-                "message": "Database initialized successfully",
-                "weather_records_created": result["weather_records_created"],
-                "users_created": result["users_created"]
-            }
-        else:
-            return {
-                "message": "Database already contains data",
-                "existing_records": result["existing_records"],
-                "existing_users": result["existing_users"]
-            }
-    except Exception as e:
-        error_type = type(e).__name__
-        error_msg = str(e) if str(e) else repr(e)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error initializing database - {error_type}: {error_msg}"
-        )
-
-
-@app.post("/init-db")
-async def initialize_database_post(current_user: User = Depends(get_current_user)):
-    """
-    Initialize database with sample data (POST endpoint).
-    
-    Requires authentication (Bearer token).
-    Only initializes if database is empty.
-    
-    Returns success message with number of records created.
-    """
-    try:
-        result = _initialize_database()
-        
-        if result["success"]:
-            return {
-                "message": "Database initialized successfully",
-                "weather_records_created": result["weather_records_created"],
-                "users_created": result["users_created"]
-            }
-        else:
-            return {
-                "message": "Database already contains data",
-                "existing_records": result["existing_records"],
-                "existing_users": result["existing_users"]
-            }
-    except Exception as e:
-        error_type = type(e).__name__
-        error_msg = str(e) if str(e) else repr(e)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error initializing database - {error_type}: {error_msg}"
-        )
-
