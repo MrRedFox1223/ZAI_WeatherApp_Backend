@@ -288,7 +288,22 @@ def _initialize_database():
                 db.add(record)
             records_created = len(sample_data)
         
-        if existing_users == 0:
+        # Check if admin user exists, if not create it
+        # If exists but has invalid password, delete and recreate
+        existing_admin = db.query(User).filter(User.username == "admin").first()
+        if existing_admin:
+            # Check if password is valid by trying to verify it
+            try:
+                verify_password("admin", existing_admin.password)
+                # Password is valid, no need to create user
+            except Exception:
+                # Password is invalid or too long, delete and recreate
+                db.delete(existing_admin)
+                db.commit()
+                existing_admin = None
+        
+        if existing_admin is None:
+            # Create new admin user
             hashed_password = get_password_hash("admin")
             admin_user = User(
                 username="admin",
