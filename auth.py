@@ -49,16 +49,37 @@ def verify_token(token: str, credentials_exception):
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against a hash."""
+    """Verify a password against a hash (supports both passlib and direct bcrypt)."""
     try:
         # Truncate plain password if too long (bcrypt limit is 72 bytes)
         if isinstance(plain_password, str):
             password_bytes = plain_password.encode('utf-8')
             if len(password_bytes) > 72:
                 plain_password = password_bytes[:72].decode('utf-8', errors='ignore')
-        return pwd_context.verify(plain_password, hashed_password)
+        
+        # Try passlib first
+        try:
+            return pwd_context.verify(plain_password, hashed_password)
+        except (ValueError, Exception):
+            # If passlib fails, try direct bcrypt verification
+            try:
+                # Convert hashed_password to bytes if it's a string
+                if isinstance(hashed_password, str):
+                    hashed_bytes = hashed_password.encode('utf-8')
+                else:
+                    hashed_bytes = hashed_password
+                
+                # Convert plain_password to bytes
+                password_bytes_final = plain_password.encode('utf-8')
+                if len(password_bytes_final) > 72:
+                    password_bytes_final = password_bytes_final[:72]
+                
+                # Verify using direct bcrypt
+                return bcrypt.checkpw(password_bytes_final, hashed_bytes)
+            except Exception:
+                return False
     except (ValueError, Exception) as e:
-        # If verification fails (e.g., hash is invalid or too long), return False
+        # If verification fails, return False
         return False
 
 
