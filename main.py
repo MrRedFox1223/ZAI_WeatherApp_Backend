@@ -304,29 +304,28 @@ def _initialize_database():
             db.delete(existing_admin)
             db.commit()
         
-        # Create new admin user with hashed password
-        # Use a simple, short password "admin" which is definitely < 72 bytes
-        password_plain = "admin"
-        try:
-            hashed_password = get_password_hash(password_plain)
-            admin_user = User(
-                username="admin",
-                password=hashed_password,
-                role="admin"
-            )
-            db.add(admin_user)
-            users_created = 1
-        except Exception as hash_error:
-            error_msg = str(hash_error)
-            # If error mentions 72 bytes, the password itself might be the issue
-            if "72 bytes" in error_msg.lower():
-                # This shouldn't happen with "admin" (5 bytes), but handle it anyway
-                # Maybe the hash is being passed as password? Check if hashed_password is too long
-                raise HTTPException(
-                    status_code=500, 
-                    detail=f"Password hashing error: {error_msg}. This may indicate an issue with passlib/bcrypt configuration."
+        # Check if admin user doesn't exist, create it
+        existing_admin_check = db.query(User).filter(User.username == "admin").first()
+        if not existing_admin_check:
+            # Create new admin user with hashed password
+            # Use a simple, short password "admin" which is definitely < 72 bytes
+            password_plain = "admin"
+            try:
+                hashed_password = get_password_hash(password_plain)
+                admin_user = User(
+                    username="admin",
+                    password=hashed_password,
+                    role="admin"
                 )
-            raise HTTPException(status_code=500, detail=f"Failed to create admin user: {error_msg}")
+                db.add(admin_user)
+                users_created = 1
+            except Exception as hash_error:
+                # Log detailed error information
+                error_type = type(hash_error).__name__
+                error_msg = str(hash_error) if str(hash_error) else repr(hash_error)
+                error_detail = f"{error_type}: {error_msg}"
+                print(f"Error creating admin user: {error_detail}")
+                raise Exception(f"Failed to create admin user - {error_detail}")
         
         db.commit()
         
@@ -338,9 +337,18 @@ def _initialize_database():
             "existing_users": existing_users
         }
             
+    except HTTPException:
+        # Re-raise HTTPException as-is
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error initializing database: {str(e)}")
+        # Create detailed error message
+        error_type = type(e).__name__
+        error_msg = str(e) if str(e) else repr(e)
+        error_detail = f"{error_type}: {error_msg}" if error_msg else f"{error_type} (no message)"
+        print(f"Error in _initialize_database: {error_detail}")
+        raise Exception(f"Error initializing database - {error_detail}")
     finally:
         db.close()
 
@@ -355,20 +363,28 @@ async def initialize_database_get():
     
     Returns success message with number of records created.
     """
-    result = _initialize_database()
-    
-    if result["success"]:
-        return {
-            "message": "Database initialized successfully",
-            "weather_records_created": result["weather_records_created"],
-            "users_created": result["users_created"]
-        }
-    else:
-        return {
-            "message": "Database already contains data",
-            "existing_records": result["existing_records"],
-            "existing_users": result["existing_users"]
-        }
+    try:
+        result = _initialize_database()
+        
+        if result["success"]:
+            return {
+                "message": "Database initialized successfully",
+                "weather_records_created": result["weather_records_created"],
+                "users_created": result["users_created"]
+            }
+        else:
+            return {
+                "message": "Database already contains data",
+                "existing_records": result["existing_records"],
+                "existing_users": result["existing_users"]
+            }
+    except Exception as e:
+        error_type = type(e).__name__
+        error_msg = str(e) if str(e) else repr(e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error initializing database - {error_type}: {error_msg}"
+        )
 
 
 @app.post("/init-db")
@@ -381,18 +397,26 @@ async def initialize_database_post(current_user: User = Depends(get_current_user
     
     Returns success message with number of records created.
     """
-    result = _initialize_database()
-    
-    if result["success"]:
-        return {
-            "message": "Database initialized successfully",
-            "weather_records_created": result["weather_records_created"],
-            "users_created": result["users_created"]
-        }
-    else:
-        return {
-            "message": "Database already contains data",
-            "existing_records": result["existing_records"],
-            "existing_users": result["existing_users"]
-        }
+    try:
+        result = _initialize_database()
+        
+        if result["success"]:
+            return {
+                "message": "Database initialized successfully",
+                "weather_records_created": result["weather_records_created"],
+                "users_created": result["users_created"]
+            }
+        else:
+            return {
+                "message": "Database already contains data",
+                "existing_records": result["existing_records"],
+                "existing_users": result["existing_users"]
+            }
+    except Exception as e:
+        error_type = type(e).__name__
+        error_msg = str(e) if str(e) else repr(e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error initializing database - {error_type}: {error_msg}"
+        )
 
