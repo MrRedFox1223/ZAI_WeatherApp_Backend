@@ -3,13 +3,68 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
 
-from database import engine, get_db, Base
+from database import engine, get_db, Base, SessionLocal
 from models import WeatherRecord, User
 from schemas import WeatherRecordResponse, WeatherRecordUpdate, WeatherRecordBase, LoginRequest, LoginResponse, ChangePasswordRequest, ChangePasswordResponse
 from auth import create_access_token, get_current_user, verify_password, get_password_hash
+from datetime import date
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+
+# Import initialization function
+def init_database():
+    """Initialize database with sample data if empty"""
+    db = SessionLocal()
+    try:
+        # Check if data already exists
+        existing_records = db.query(WeatherRecord).count()
+        existing_users = db.query(User).count()
+        
+        if existing_records > 0 and existing_users > 0:
+            return
+        
+        # Sample weather data
+        sample_data = [
+            {"id": 1, "city_name": "New York", "date": date(2024, 1, 14), "temperature": 5.0},
+            {"id": 2, "city_name": "London", "date": date(2024, 1, 14), "temperature": 8.0},
+            {"id": 3, "city_name": "Tokyo", "date": date(2024, 1, 14), "temperature": 12.0},
+            {"id": 4, "city_name": "Paris", "date": date(2024, 1, 14), "temperature": 6.0},
+            {"id": 5, "city_name": "New York", "date": date(2024, 1, 15), "temperature": 7.0},
+            {"id": 6, "city_name": "London", "date": date(2024, 1, 15), "temperature": 9.0},
+            {"id": 7, "city_name": "Tokyo", "date": date(2024, 1, 15), "temperature": 13.0},
+            {"id": 8, "city_name": "Paris", "date": date(2024, 1, 15), "temperature": 7.0},
+            {"id": 9, "city_name": "New York", "date": date(2024, 1, 16), "temperature": 6.0},
+            {"id": 10, "city_name": "London", "date": date(2024, 1, 16), "temperature": 10.0},
+            {"id": 11, "city_name": "Tokyo", "date": date(2024, 1, 16), "temperature": 14.0},
+            {"id": 12, "city_name": "Paris", "date": date(2024, 1, 16), "temperature": 8.0},
+        ]
+        
+        # Add sample weather data
+        if existing_records == 0:
+            for data in sample_data:
+                record = WeatherRecord(**data)
+                db.add(record)
+        
+        # Add admin user
+        if existing_users == 0:
+            hashed_password = get_password_hash("admin")
+            admin_user = User(
+                username="admin",
+                password=hashed_password,
+                role="admin"
+            )
+            db.add(admin_user)
+        
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"Error initializing database: {e}")
+    finally:
+        db.close()
+
+# Initialize database on startup if empty
+init_database()
 
 app = FastAPI(
     title="Weather App API",
@@ -23,7 +78,6 @@ app.add_middleware(
     allow_origins=[
         "https://zai-weatherapp-frontend.onrender.com",
         "http://localhost:3000",  # For local development
-        "http://localhost:5173",  # For Vite dev server
     ],
     allow_credentials=True,
     allow_methods=["*"],
