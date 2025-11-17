@@ -46,8 +46,13 @@ def init_database():
                 record = WeatherRecord(**data)
                 db.add(record)
         
-        # Add admin user
-        if existing_users == 0:
+        # Add admin user - always ensure admin exists with valid password
+        existing_admin = db.query(User).filter(User.username == "admin").first()
+        if existing_admin:
+            # Delete existing admin to recreate with fresh password (avoid password issues)
+            db.delete(existing_admin)
+        # Create new admin user
+        try:
             hashed_password = get_password_hash("admin")
             admin_user = User(
                 username="admin",
@@ -55,6 +60,9 @@ def init_database():
                 role="admin"
             )
             db.add(admin_user)
+        except Exception as e:
+            print(f"Error creating admin user in init_database: {e}")
+            raise
         
         db.commit()
     except Exception as e:
@@ -288,23 +296,19 @@ def _initialize_database():
                 db.add(record)
             records_created = len(sample_data)
         
-        # Check if admin user exists, if not create it
-        # If exists but has invalid password, delete and recreate
+        # Always ensure admin user exists with valid password
+        # Delete existing admin user if it exists to avoid any password issues
         existing_admin = db.query(User).filter(User.username == "admin").first()
         if existing_admin:
-            # Check if password is valid by trying to verify it
-            try:
-                verify_password("admin", existing_admin.password)
-                # Password is valid, no need to create user
-            except Exception:
-                # Password is invalid or too long, delete and recreate
-                db.delete(existing_admin)
-                db.commit()
-                existing_admin = None
+            # Delete existing admin to recreate with fresh password
+            db.delete(existing_admin)
+            db.commit()
         
-        if existing_admin is None:
-            # Create new admin user
-            hashed_password = get_password_hash("admin")
+        # Create new admin user with hashed password
+        # Use a simple, short password "admin" which is definitely < 72 bytes
+        password_plain = "admin"
+        try:
+            hashed_password = get_password_hash(password_plain)
             admin_user = User(
                 username="admin",
                 password=hashed_password,
@@ -312,6 +316,17 @@ def _initialize_database():
             )
             db.add(admin_user)
             users_created = 1
+        except Exception as hash_error:
+            error_msg = str(hash_error)
+            # If error mentions 72 bytes, the password itself might be the issue
+            if "72 bytes" in error_msg.lower():
+                # This shouldn't happen with "admin" (5 bytes), but handle it anyway
+                # Maybe the hash is being passed as password? Check if hashed_password is too long
+                raise HTTPException(
+                    status_code=500, 
+                    detail=f"Password hashing error: {error_msg}. This may indicate an issue with passlib/bcrypt configuration."
+                )
+            raise HTTPException(status_code=500, detail=f"Failed to create admin user: {error_msg}")
         
         db.commit()
         

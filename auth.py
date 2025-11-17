@@ -49,18 +49,45 @@ def verify_token(token: str, credentials_exception):
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against a hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        # Truncate plain password if too long (bcrypt limit is 72 bytes)
+        if isinstance(plain_password, str):
+            password_bytes = plain_password.encode('utf-8')
+            if len(password_bytes) > 72:
+                plain_password = password_bytes[:72].decode('utf-8', errors='ignore')
+        return pwd_context.verify(plain_password, hashed_password)
+    except (ValueError, Exception) as e:
+        # If verification fails (e.g., hash is invalid or too long), return False
+        return False
 
 
 def get_password_hash(password: str) -> str:
     """Hash a password."""
+    # Ensure password is a string
+    if not isinstance(password, str):
+        password = str(password)
+    
     # Bcrypt has a 72-byte limit, truncate if necessary
-    if isinstance(password, str):
-        # Encode to bytes to check length
-        password_bytes = password.encode('utf-8')
-        if len(password_bytes) > 72:
-            password = password_bytes[:72].decode('utf-8', errors='ignore')
-    return pwd_context.hash(password)
+    password_bytes = password.encode('utf-8')
+    if len(password_bytes) > 72:
+        # Truncate to 72 bytes max
+        password = password_bytes[:72].decode('utf-8', errors='ignore')
+    
+    # Ensure password is not empty after truncation
+    if not password:
+        raise ValueError("Password cannot be empty")
+    
+    try:
+        return pwd_context.hash(password)
+    except ValueError as e:
+        # If passlib raises ValueError about password length, try with truncated version
+        if "72 bytes" in str(e).lower() or "too long" in str(e).lower():
+            # Double-check truncation
+            password_truncated = password_bytes[:72].decode('utf-8', errors='ignore')
+            if not password_truncated:
+                raise ValueError("Password is too long and becomes empty after truncation")
+            return pwd_context.hash(password_truncated)
+        raise
 
 
 def get_current_user(
