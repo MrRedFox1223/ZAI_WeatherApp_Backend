@@ -9,9 +9,10 @@ import bcrypt
 
 from database import get_db
 from models import User
+import os
 
-# Secret key for JWT (in production, use environment variable)
-SECRET_KEY = "your-secret-key-change-this-in-production"
+# Secret key for JWT - get from environment variable, fallback to default for development
+SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-this-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30 * 24 * 60  # 30 days
 
