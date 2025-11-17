@@ -310,8 +310,19 @@ def _initialize_database():
             # Create new admin user with hashed password
             # Use a simple, short password "admin" which is definitely < 72 bytes
             password_plain = "admin"
+            
+            # Debug: verify password length
+            password_bytes = password_plain.encode('utf-8')
+            print(f"DEBUG: Creating admin user with password length: {len(password_bytes)} bytes")
+            print(f"DEBUG: Password: '{password_plain}'")
+            
             try:
                 hashed_password = get_password_hash(password_plain)
+                
+                # Debug: verify hash length
+                print(f"DEBUG: Hash length: {len(hashed_password)} characters")
+                print(f"DEBUG: Hash starts with: {hashed_password[:20]}...")
+                
                 admin_user = User(
                     username="admin",
                     password=hashed_password,
@@ -324,7 +335,8 @@ def _initialize_database():
                 error_type = type(hash_error).__name__
                 error_msg = str(hash_error) if str(hash_error) else repr(hash_error)
                 error_detail = f"{error_type}: {error_msg}"
-                print(f"Error creating admin user: {error_detail}")
+                print(f"ERROR creating admin user: {error_detail}")
+                print(f"ERROR password_plain type: {type(password_plain)}, value: '{password_plain}', bytes: {len(password_plain.encode('utf-8'))}")
                 raise Exception(f"Failed to create admin user - {error_detail}")
         
         db.commit()

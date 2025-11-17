@@ -5,6 +5,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
+import bcrypt
 
 from database import get_db
 from models import User
@@ -62,32 +63,53 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def get_password_hash(password: str) -> str:
-    """Hash a password."""
+    """Hash a password using passlib/bcrypt with fallback to direct bcrypt."""
     # Ensure password is a string
     if not isinstance(password, str):
         password = str(password)
     
-    # Bcrypt has a 72-byte limit, truncate if necessary
+    # Bcrypt has a 72-byte limit - ALWAYS truncate to ensure we're within limits
     password_bytes = password.encode('utf-8')
-    if len(password_bytes) > 72:
-        # Truncate to 72 bytes max
-        password = password_bytes[:72].decode('utf-8', errors='ignore')
+    
+    # Force truncation to 71 bytes to be safe (leaving 1 byte margin)
+    if len(password_bytes) > 71:
+        password = password_bytes[:71].decode('utf-8', errors='ignore')
     
     # Ensure password is not empty after truncation
     if not password:
-        raise ValueError("Password cannot be empty")
+        raise ValueError("Password cannot be empty after truncation")
     
+    # Verify byte length one more time before hashing
+    final_bytes = password.encode('utf-8')
+    if len(final_bytes) > 72:
+        # This shouldn't happen, but force truncation again if it does
+        password = final_bytes[:71].decode('utf-8', errors='ignore')
+        if not password:
+            raise ValueError("Password becomes empty after forced truncation")
+    
+    # Try passlib first
     try:
         return pwd_context.hash(password)
-    except ValueError as e:
-        # If passlib raises ValueError about password length, try with truncated version
-        if "72 bytes" in str(e).lower() or "too long" in str(e).lower():
-            # Double-check truncation
-            password_truncated = password_bytes[:72].decode('utf-8', errors='ignore')
-            if not password_truncated:
-                raise ValueError("Password is too long and becomes empty after truncation")
-            return pwd_context.hash(password_truncated)
-        raise
+    except (ValueError, Exception) as e:
+        error_msg = str(e).lower()
+        # If error is about password length, try direct bcrypt as fallback
+        if "72 bytes" in error_msg or "too long" in error_msg or "truncate" in error_msg:
+            print(f"WARNING: passlib failed with error: {error_msg}. Trying direct bcrypt...")
+            # Use bcrypt directly as fallback
+            try:
+                # Generate salt and hash using bcrypt directly
+                salt = bcrypt.gensalt()
+                password_bytes_final = password.encode('utf-8')
+                # Ensure password is <= 72 bytes
+                if len(password_bytes_final) > 72:
+                    password_bytes_final = password_bytes_final[:72]
+                hashed = bcrypt.hashpw(password_bytes_final, salt)
+                # Return as string (bcrypt returns bytes, passlib expects string)
+                return hashed.decode('utf-8')
+            except Exception as e2:
+                raise ValueError(f"Failed to hash password with both passlib and direct bcrypt: {str(e2)}")
+        # If it's a different error, raise it as-is
+        raise ValueError(f"Password hashing failed: {str(e)}")
 
 
 def get_current_user(
