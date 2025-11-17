@@ -257,16 +257,8 @@ async def delete_weather_record(
     return {"message": "Weather record deleted successfully", "id": record_id}
 
 
-@app.post("/init-db")
-async def initialize_database(current_user: User = Depends(get_current_user)):
-    """
-    Initialize database with sample data.
-    
-    Requires authentication (Bearer token).
-    Only initializes if database is empty.
-    
-    Returns success message with number of records created.
-    """
+def _initialize_database():
+    """Internal function to initialize database"""
     db = SessionLocal()
     try:
         existing_records = db.query(WeatherRecord).count()
@@ -308,22 +300,69 @@ async def initialize_database(current_user: User = Depends(get_current_user)):
         
         db.commit()
         
-        if records_created > 0 or users_created > 0:
-            return {
-                "message": "Database initialized successfully",
-                "weather_records_created": records_created,
-                "users_created": users_created
-            }
-        else:
-            return {
-                "message": "Database already contains data",
-                "existing_records": existing_records,
-                "existing_users": existing_users
-            }
+        return {
+            "success": records_created > 0 or users_created > 0,
+            "weather_records_created": records_created,
+            "users_created": users_created,
+            "existing_records": existing_records,
+            "existing_users": existing_users
+        }
             
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error initializing database: {str(e)}")
     finally:
         db.close()
+
+
+@app.get("/init-db")
+async def initialize_database_get():
+    """
+    Initialize database with sample data (GET endpoint).
+    
+    Only initializes if database is empty. Works without authentication for convenience.
+    In production, consider using POST /init-db with authentication.
+    
+    Returns success message with number of records created.
+    """
+    result = _initialize_database()
+    
+    if result["success"]:
+        return {
+            "message": "Database initialized successfully",
+            "weather_records_created": result["weather_records_created"],
+            "users_created": result["users_created"]
+        }
+    else:
+        return {
+            "message": "Database already contains data",
+            "existing_records": result["existing_records"],
+            "existing_users": result["existing_users"]
+        }
+
+
+@app.post("/init-db")
+async def initialize_database_post(current_user: User = Depends(get_current_user)):
+    """
+    Initialize database with sample data (POST endpoint).
+    
+    Requires authentication (Bearer token).
+    Only initializes if database is empty.
+    
+    Returns success message with number of records created.
+    """
+    result = _initialize_database()
+    
+    if result["success"]:
+        return {
+            "message": "Database initialized successfully",
+            "weather_records_created": result["weather_records_created"],
+            "users_created": result["users_created"]
+        }
+    else:
+        return {
+            "message": "Database already contains data",
+            "existing_records": result["existing_records"],
+            "existing_users": result["existing_users"]
+        }
 
