@@ -10,26 +10,187 @@ Backend API dla aplikacji pogodowej zbudowany w FastAPI z bazą danych SQLite.
 - **PUT /weather** - Aktualizuje rekord pogodowy (wymaga autentykacji)
 - **DELETE /weather/{id}** - Usuwa rekord pogodowy (wymaga autentykacji)
 
-## Instalacja
+## Instalacja - Instrukcja krok po kroku
 
-1. Zainstaluj zależności:
+### Wymagania wstępne
+
+- Python 3.12 lub nowszy (projekt używa Python 3.12.8)
+- pip (menedżer pakietów Python)
+- Git (opcjonalnie, do klonowania repozytorium)
+
+### Krok 1: Sklonuj lub pobierz projekt
+
+**Opcja A: Jeśli masz repozytorium Git:**
 ```bash
+git clone <URL-repozytorium>
+cd ZAI_WeatherApp_Backend
+```
+
+**Opcja B: Jeśli masz pliki projektu:**
+- Rozpakuj pliki projektu do wybranego folderu
+- Otwórz terminal/wiersz poleceń w folderze projektu
+
+### Krok 2: Stwórz wirtualne środowisko (zalecane)
+
+**Windows:**
+```bash
+python -m venv venv
+venv\Scripts\activate
+```
+
+**Linux/macOS:**
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+Po aktywacji wirtualnego środowiska w terminalu powinieneś zobaczyć `(venv)` na początku linii.
+
+### Krok 3: Zainstaluj zależności
+
+```bash
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-2. Zainicjalizuj bazę danych z przykładowymi danymi:
+To zainstaluje wszystkie wymagane biblioteki:
+- FastAPI - framework webowy
+- Uvicorn - serwer ASGI
+- SQLAlchemy - ORM do bazy danych
+- python-jose - biblioteka do JWT
+- passlib - hashowanie haseł
+- i inne...
+
+### Krok 4: Zainicjalizuj bazę danych
+
 ```bash
 python init_db.py
 ```
 
-## Uruchomienie
+To wykona:
+- Utworzenie tabel w bazie danych SQLite
+- Dodanie 100 przykładowych rekordów pogodowych (10 miast × 10 miesięcy)
+- Utworzenie użytkownika admin (username: `admin`, password: `admin`)
 
-Uruchom serwer development:
+Powinieneś zobaczyć komunikaty:
+```
+Successfully initialized database with 100 weather records.
+Successfully added admin user (username: admin, password: admin - hashed).
+```
+
+### Krok 5: Uruchom serwer development
+
 ```bash
 uvicorn main:app --reload
 ```
 
+Flaga `--reload` automatycznie przeładuje serwer przy zmianach w kodzie (przydatne podczas developmentu).
+
+### Krok 6: Sprawdź czy aplikacja działa
+
 Serwer będzie dostępny pod adresem: `http://localhost:8000`
+
+Otwórz w przeglądarce:
+- **Główny endpoint:** http://localhost:8000
+- **Dokumentacja Swagger UI:** http://localhost:8000/docs
+- **Dokumentacja ReDoc:** http://localhost:8000/redoc
+
+## Uruchomienie bez wirtualnego środowiska (niezalecane)
+
+Jeśli nie chcesz używać wirtualnego środowiska:
+
+```bash
+pip install -r requirements.txt
+python init_db.py
+uvicorn main:app --reload
+```
+
+**Uwaga:** Instalacja bezpośrednio w systemie może powodować konflikty z innymi projektami Python.
+
+## Rozwiązywanie problemów
+
+### Problem: `python: command not found` lub `python: nie rozpoznano polecenia`
+
+**Rozwiązanie:**
+- Windows: Użyj `py` zamiast `python`: `py -m venv venv`
+- Linux/macOS: Użyj `python3` zamiast `python`: `python3 -m venv venv`
+- Sprawdź czy Python jest zainstalowany: `python --version` lub `python3 --version`
+
+### Problem: `pip: command not found`
+
+**Rozwiązanie:**
+- Windows: `py -m pip install -r requirements.txt`
+- Linux/macOS: `python3 -m pip install -r requirements.txt`
+
+### Problem: Błędy podczas instalacji zależności
+
+**Rozwiązanie:**
+1. Upewnij się, że używasz najnowszej wersji pip:
+   ```bash
+   pip install --upgrade pip
+   ```
+2. Sprawdź wersję Pythona (wymagane: Python 3.12+):
+   ```bash
+   python --version
+   ```
+
+### Problem: Błąd podczas uruchamiania `uvicorn`
+
+**Rozwiązanie:**
+- Upewnij się, że wszystkie zależności są zainstalowane: `pip install -r requirements.txt`
+- Sprawdź czy jesteś w katalogu projektu
+- Sprawdź czy wirtualne środowisko jest aktywowane
+
+### Problem: Port 8000 już w użyciu
+
+**Rozwiązanie:**
+Uruchom serwer na innym porcie:
+```bash
+uvicorn main:app --reload --port 8001
+```
+
+### Problem: Baza danych nie jest inicjalizowana
+
+**Rozwiązanie:**
+- Uruchom ręcznie: `python init_db.py`
+- Sprawdź czy plik `weather.db` został utworzony w katalogu projektu
+- Sprawdź komunikaty błędów w terminalu
+
+## Deaktywacja wirtualnego środowiska
+
+Po zakończeniu pracy:
+
+```bash
+deactivate
+```
+
+## Weryfikacja instalacji
+
+Po uruchomieniu serwera, sprawdź:
+
+1. **Główny endpoint:** http://localhost:8000
+   - Powinien zwrócić: `{"message": "Weather App API", "docs": "/docs", "redoc": "/redoc"}`
+
+2. **Dokumentacja Swagger:** http://localhost:8000/docs
+   - Powinien otworzyć się interfejs Swagger UI
+
+3. **Test endpointu GET /weather:** http://localhost:8000/weather
+   - Powinien zwrócić listę 100 rekordów pogodowych
+
+4. **Test logowania:**
+   ```bash
+   curl -X POST "http://localhost:8000/login" -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"admin\"}"
+   ```
+   - Powinien zwrócić token JWT
+
+## Domyślne dane logowania
+
+Po inicjalizacji bazy danych:
+
+- **Username:** `admin`
+- **Password:** `admin`
+
+**⚠️ Uwaga:** W produkcji zmień te dane na bezpieczniejsze!
 
 ## Dokumentacja API
 
