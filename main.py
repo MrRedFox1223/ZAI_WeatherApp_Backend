@@ -7,12 +7,12 @@ from database import engine, get_db, Base, SessionLocal
 from models import WeatherRecord, User
 from schemas import WeatherRecordResponse, WeatherRecordUpdate, WeatherRecordBase, LoginRequest, LoginResponse, ChangePasswordRequest, ChangePasswordResponse
 from auth import create_access_token, get_current_user, verify_password, get_password_hash
-from datetime import date
+from init_db import generate_sample_data
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
-# Import initialization function
+
 def init_database():
     """Initialize database with sample data if empty"""
     db = SessionLocal()
@@ -24,24 +24,9 @@ def init_database():
         if existing_records > 0 and existing_users > 0:
             return
         
-        # Sample weather data
-        sample_data = [
-            {"id": 1, "city_name": "New York", "date": date(2024, 1, 14), "temperature": 5.0},
-            {"id": 2, "city_name": "London", "date": date(2024, 1, 14), "temperature": 8.0},
-            {"id": 3, "city_name": "Tokyo", "date": date(2024, 1, 14), "temperature": 12.0},
-            {"id": 4, "city_name": "Paris", "date": date(2024, 1, 14), "temperature": 6.0},
-            {"id": 5, "city_name": "New York", "date": date(2024, 1, 15), "temperature": 7.0},
-            {"id": 6, "city_name": "London", "date": date(2024, 1, 15), "temperature": 9.0},
-            {"id": 7, "city_name": "Tokyo", "date": date(2024, 1, 15), "temperature": 13.0},
-            {"id": 8, "city_name": "Paris", "date": date(2024, 1, 15), "temperature": 7.0},
-            {"id": 9, "city_name": "New York", "date": date(2024, 1, 16), "temperature": 6.0},
-            {"id": 10, "city_name": "London", "date": date(2024, 1, 16), "temperature": 10.0},
-            {"id": 11, "city_name": "Tokyo", "date": date(2024, 1, 16), "temperature": 14.0},
-            {"id": 12, "city_name": "Paris", "date": date(2024, 1, 16), "temperature": 8.0},
-        ]
-        
-        # Add sample weather data
+        # Generate and add sample weather data
         if existing_records == 0:
+            sample_data = generate_sample_data()
             for data in sample_data:
                 record = WeatherRecord(**data)
                 db.add(record)

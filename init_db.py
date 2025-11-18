@@ -10,23 +10,48 @@ from auth import get_password_hash
 # Create all tables
 Base.metadata.create_all(bind=engine)
 
-# Sample data
-sample_data = [
-    {"id": 1, "city_name": "New York", "date": date(2024, 1, 14), "temperature": 5.0},
-    {"id": 2, "city_name": "London", "date": date(2024, 1, 14), "temperature": 8.0},
-    {"id": 3, "city_name": "Tokyo", "date": date(2024, 1, 14), "temperature": 12.0},
-    {"id": 4, "city_name": "Paris", "date": date(2024, 1, 14), "temperature": 6.0},
-    {"id": 5, "city_name": "New York", "date": date(2024, 1, 15), "temperature": 7.0},
-    {"id": 6, "city_name": "London", "date": date(2024, 1, 15), "temperature": 9.0},
-    {"id": 7, "city_name": "Tokyo", "date": date(2024, 1, 15), "temperature": 13.0},
-    {"id": 8, "city_name": "Paris", "date": date(2024, 1, 15), "temperature": 7.0},
-    {"id": 9, "city_name": "New York", "date": date(2024, 1, 16), "temperature": 6.0},
-    {"id": 10, "city_name": "London", "date": date(2024, 1, 16), "temperature": 10.0},
-    {"id": 11, "city_name": "Tokyo", "date": date(2024, 1, 16), "temperature": 14.0},
-    {"id": 12, "city_name": "Paris", "date": date(2024, 1, 16), "temperature": 8.0},
-]
+
+def generate_sample_data():
+    """Generate sample weather data - 100 entries for 10 cities (10 entries per city).
+    
+    Returns a list of dictionaries with weather records.
+    """
+    # Sample weather data - 100 entries for 10 cities (10 entries per city)
+    # Temperatures represent realistic average monthly temperatures for each city
+    cities = [
+        # City name, monthly temperatures [Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct]
+        ("Warszawa", [-2.0, -1.0, 3.0, 9.0, 15.0, 18.0, 20.0, 19.0, 14.0, 8.0]),
+        ("Berlin", [0.0, 1.0, 5.0, 10.0, 15.0, 18.0, 19.0, 19.0, 14.0, 9.0]),
+        ("Paryż", [4.0, 5.0, 8.0, 11.0, 15.0, 18.0, 19.0, 19.0, 16.0, 12.0]),
+        ("Rzym", [7.0, 8.0, 11.0, 14.0, 18.0, 22.0, 25.0, 25.0, 21.0, 16.0]),
+        ("Madryt", [6.0, 8.0, 11.0, 13.0, 17.0, 22.0, 25.0, 25.0, 20.0, 14.0]),
+        ("Londyn", [5.0, 5.0, 7.0, 10.0, 13.0, 16.0, 18.0, 18.0, 15.0, 11.0]),
+        ("Tokio", [5.0, 6.0, 9.0, 14.0, 18.0, 22.0, 26.0, 27.0, 23.0, 17.0]),
+        ("Nowy Jork", [0.0, 1.0, 5.0, 11.0, 17.0, 22.0, 25.0, 24.0, 20.0, 14.0]),
+        ("Sydney", [23.0, 23.0, 22.0, 19.0, 16.0, 13.0, 12.0, 13.0, 15.0, 18.0]),
+        ("Kair", [14.0, 15.0, 18.0, 22.0, 26.0, 28.0, 29.0, 29.0, 27.0, 24.0]),
+    ]
+    
+    months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]  # January to October 2025
+    sample_data = []
+    record_id = 1
+    
+    for city_name, temperatures in cities:
+        for month_idx, month in enumerate(months):
+            # Use 15th of each month as representative date
+            sample_data.append({
+                "id": record_id,
+                "city_name": city_name,
+                "date": date(2025, month, 15),
+                "temperature": temperatures[month_idx]
+            })
+            record_id += 1
+    
+    return sample_data
+
 
 def init_db():
+    """Initialize database with sample data."""
     db = SessionLocal()
     try:
         # Check if data already exists
@@ -37,8 +62,9 @@ def init_db():
             print(f"Database already contains {existing_records} weather records and {existing_users} users. Skipping initialization.")
             return
         
-        # Add sample weather data
+        # Generate and add sample weather data
         if existing_records == 0:
+            sample_data = generate_sample_data()
             for data in sample_data:
                 record = WeatherRecord(**data)
                 db.add(record)
