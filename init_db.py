@@ -1,7 +1,3 @@
-"""
-Script to initialize the database with sample data.
-Run this script once to populate the database with initial weather records.
-"""
 from database import SessionLocal, engine
 from models import Base, WeatherRecord, User
 from datetime import date
@@ -11,10 +7,6 @@ Base.metadata.create_all(bind=engine)
 
 
 def generate_sample_data():
-    """Generate sample weather data - 100 entries for 10 cities (10 entries per city).
-    
-    Returns a list of dictionaries with weather records.
-    """
     cities = [
         ("Warszawa", [-2.0, -1.0, 3.0, 9.0, 15.0, 18.0, 20.0, 19.0, 14.0, 8.0]),
         ("Berlin", [0.0, 1.0, 5.0, 10.0, 15.0, 18.0, 19.0, 19.0, 14.0, 9.0]),
@@ -46,7 +38,6 @@ def generate_sample_data():
 
 
 def init_db():
-    """Initialize database with sample data."""
     db = SessionLocal()
     try:
         existing_records = db.query(WeatherRecord).count()
